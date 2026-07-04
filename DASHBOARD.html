@@ -255,6 +255,26 @@
       </div>
     </div>
 
+    <div class="card full">
+      <h2>Implementação no projeto Velô</h2>
+      <p class="hint">Como o Playwright está configurado neste repositório</p>
+      <div class="verdict">
+        <div class="v win">
+          <span class="badge">Em produção no repo</span>
+          <h4 style="color:var(--pw)">Testes E2E</h4>
+          <p>4 testes cobrindo smoke (<code>/</code>) e consulta de pedidos (<code>/lookup</code>). Seed automático no Supabase com cleanup após execução.</p>
+        </div>
+        <div class="v">
+          <h4 style="color:var(--pw)">Arquivos</h4>
+          <p><code>playwright/e2e/</code>, <code>helpers/orders.ts</code>, <code>fixtures/test.ts</code></p>
+        </div>
+        <div class="v">
+          <h4 style="color:var(--pw)">Rodar</h4>
+          <p><code>yarn playwright test</code> ou <code>yarn test:e2e:ui</code></p>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <footer>
