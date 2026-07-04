@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel QA 2026 — Playwright vs Selenium vs Cypress</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0A0E14;
+    --panel:#111826;
+    --panel-border:#1E2A3A;
+    --text:#E7EEF5;
+    --muted:#7C8AA0;
+    --pw:#2EE6C5;   /* playwright - ciano */
+    --se:#F2A93B;   /* selenium - âmbar */
+    --cy:#B98CFF;   /* cypress - violeta */
+    --grid:#1B2433;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(46,230,197,0.06), transparent 45%),
+      radial-gradient(ellipse at bottom right, rgba(185,140,255,0.06), transparent 45%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    padding:32px 20px 60px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* header / ticker */
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.14em;
+    color:var(--muted);
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  h1{
+    font-size:clamp(26px,4vw,40px);
+    line-height:1.15;
+    margin:0 0 6px;
+    font-weight:700;
+    letter-spacing:-0.02em;
+  }
+  h1 span.pw{color:var(--pw);}
+  h1 span.se{color:var(--se);}
+  h1 span.cy{color:var(--cy);}
+  .sub{color:var(--muted);font-size:15px;max-width:680px;line-height:1.5;}
+
+  .ticker{
+    margin-top:22px;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    border-radius:10px;
+    padding:14px 18px;
+    display:flex;
+    gap:28px;
+    flex-wrap:wrap;
+    font-family:var(--mono);
+    font-size:13px;
+  }
+  .ticker .item{display:flex;align-items:baseline;gap:8px;}
+  .ticker .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .ticker b{font-size:16px;}
+  .ticker .lbl{color:var(--muted);}
+
+  /* grid */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:18px;
+    margin-top:24px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:20px 20px 12px;
+  }
+  .card.full{grid-column:1/-1;}
+  .card h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin:0 0 2px;
+    font-weight:600;
+  }
+  .card p.hint{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+    margin:0 0 14px;
+  }
+  .chart-box{position:relative;height:280px;}
+  .chart-box.tall{height:320px;}
+
+  /* future section */
+  .timeline{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin-top:10px;
+  }
+  .tl-item{
+    border-left:2px solid var(--panel-border);
+    padding:0 0 0 14px;
+    position:relative;
+  }
+  .tl-item::before{
+    content:"";
+    position:absolute;
+    left:-6px;top:2px;
+    width:10px;height:10px;
+    border-radius:50%;
+    background:var(--pw);
+  }
+  .tl-item h3{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 0 6px;letter-spacing:.06em;}
+  .tl-item p{font-size:13.5px;line-height:1.5;margin:0;color:var(--text);}
+
+  .verdict{
+    margin-top:6px;
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:14px;
+  }
+  .verdict .v{
+    border-radius:10px;
+    padding:16px;
+    border:1px solid var(--panel-border);
+  }
+  .verdict .v.win{
+    border-color:rgba(46,230,197,0.4);
+    background:linear-gradient(180deg, rgba(46,230,197,0.08), transparent);
+  }
+  .verdict .v h4{margin:0 0 6px;font-size:14px;}
+  .verdict .v p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .badge{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:.08em;
+    padding:2px 8px;
+    border-radius:20px;
+    background:rgba(46,230,197,0.15);
+    color:var(--pw);
+    margin-bottom:8px;
+    text-transform:uppercase;
+  }
+
+  footer{
+    margin-top:30px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    border-top:1px solid var(--panel-border);
+    padding-top:14px;
+  }
+
+  @media (max-width:760px){
+    .grid{grid-template-columns:1fr;}
+    .timeline{grid-template-columns:1fr 1fr;}
+    .verdict{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Painel de Automação de Testes · Atualizado 2026</div>
+    <h1><span class="pw">Playwright</span> vs <span class="se">Selenium</span> vs <span class="cy">Cypress</span></h1>
+    <p class="sub">Comparativo de dados reais de adoção, performance e estabilidade entre as três principais ferramentas de automação de testes E2E, com projeção de tendências para os próximos anos.</p>
+
+    <div class="ticker">
+      <div class="item"><span class="dot" style="background:var(--pw)"></span><span class="lbl">Playwright</span><b>45.1%</b><span class="lbl">adoção QA</span></div>
+      <div class="item"><span class="dot" style="background:var(--se)"></span><span class="lbl">Selenium</span><b>22.1%</b><span class="lbl">adoção QA</span></div>
+      <div class="item"><span class="dot" style="background:var(--cy)"></span><span class="lbl">Cypress</span><b>14.4%</b><span class="lbl">adoção QA</span></div>
+      <div class="item"><span class="lbl">Mercado global de testes</span><b>US$ 20bi → 84bi</b><span class="lbl">até 2034</span></div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <div class="card">
+      <h2>Adoção entre profissionais de QA</h2>
+      <p class="hint">% de QAs que usam cada ferramenta como principal (2026)</p>
+      <div class="chart-box"><canvas id="chartAdocao"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Evolução da adoção (2022–2026)</h2>
+      <p class="hint">Tendência real de crescimento/queda ao longo dos anos</p>
+      <div class="chart-box"><canvas id="chartEvolucao"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Performance: velocidade e estabilidade</h2>
+      <p class="hint">Playwright como referência (100%) · dados de benchmarks 2026</p>
+      <div class="chart-box"><canvas id="chartPerformance"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Comparativo de recursos</h2>
+      <p class="hint">Pontuação relativa por categoria (0–10)</p>
+      <div class="chart-box"><canvas id="chartRadar"></canvas></div>
+    </div>
+
+    <div class="card full">
+      <h2>O futuro das ferramentas de automação (visão mundial)</h2>
+      <p class="hint">Principais tendências apontadas por pesquisas e relatórios do setor em 2026</p>
+      <div class="timeline">
+        <div class="tl-item">
+          <h3>IA nativa</h3>
+          <p>Geração de testes por linguagem natural, self-healing e agentes de QA (ex: Playwright MCP, Cypress cy.prompt) deixam de ser experimentais e viram padrão de mercado.</p>
+        </div>
+        <div class="tl-item">
+          <h3>Multiframework</h3>
+          <p>74,6% dos times de QA já combinam duas ou mais ferramentas — ex: Playwright para web + Selenium/Appium para mobile nativo.</p>
+        </div>
+        <div class="tl-item">
+          <h3>Consolidação</h3>
+          <p>Playwright ultrapassou o Selenium em downloads npm e se tornou o padrão para projetos novos; Selenium se mantém forte em ambientes corporativos legados.</p>
+        </div>
+        <div class="tl-item">
+          <h3>Mercado em expansão</h3>
+          <p>O mercado global de automação de testes deve crescer de ~US$ 20 bilhões (2025) para mais de US$ 51–84 bilhões até 2031/2034.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card full">
+      <h2>Veredito por cenário</h2>
+      <p class="hint">Qual ferramenta escolher, dependendo do contexto do time</p>
+      <div class="verdict">
+        <div class="v win">
+          <span class="badge">Recomendado para 2026</span>
+          <h4 style="color:var(--pw)">Playwright</h4>
+          <p>Projetos novos, cross-browser real (Chromium/Firefox/WebKit), paralelismo nativo gratuito e o ecossistema de IA mais maduro.</p>
+        </div>
+        <div class="v">
+          <h4 style="color:var(--se)">Selenium</h4>
+          <p>Suítes legadas consolidadas, times poliglotas (Java/Python/C#/Ruby) e testes mobile nativos via Appium.</p>
+        </div>
+        <div class="v">
+          <h4 style="color:var(--cy)">Cypress</h4>
+          <p>Times 100% JavaScript/TypeScript focados em uma única SPA, priorizando debug local rápido.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Fontes: State of JS 2024 · TestDino (2025/2026) · ThinkSys (2026) · Vervali Systems · GlobeNewswire/Postman (2025) · Grand View Research — dados consolidados a partir de comparativos publicados entre mar/2026 e jun/2026.
+  </footer>
+
+</div>
+
+<script>
+Chart.defaults.color = '#7C8AA0';
+Chart.defaults.font.family = "Inter, sans-serif";
+Chart.defaults.borderColor = '#1B2433';
+
+const pw = '#2EE6C5', se = '#F2A93B', cy = '#B98CFF';
+
+// Adoção (bar)
+new Chart(document.getElementById('chartAdocao'), {
+  type: 'bar',
+  data: {
+    labels: ['Playwright', 'Selenium', 'Cypress'],
+    datasets: [{
+      data: [45.1, 22.1, 14.4],
+      backgroundColor: [pw, se, cy],
+      borderRadius: 6,
+      barThickness: 54
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, max: 50, ticks: { callback: v => v + '%' }, grid: { color: '#1B2433' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Evolução (line)
+new Chart(document.getElementById('chartEvolucao'), {
+  type: 'line',
+  data: {
+    labels: ['2022', '2023', '2024', '2025', '2026'],
+    datasets: [
+      { label: 'Playwright', data: [9, 15, 25, 36, 45.1], borderColor: pw, backgroundColor: 'transparent', tension: .35, borderWidth: 3, pointRadius: 3 },
+      { label: 'Selenium', data: [39, 34, 30, 26, 22.1], borderColor: se, backgroundColor: 'transparent', tension: .35, borderWidth: 3, pointRadius: 3 },
+      { label: 'Cypress', data: [13, 14, 15, 14.7, 14.4], borderColor: cy, backgroundColor: 'transparent', tension: .35, borderWidth: 3, pointRadius: 3 }
+    ]
+  },
+  options: {
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 16 } } },
+    scales: {
+      y: { ticks: { callback: v => v + '%' }, grid: { color: '#1B2433' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Performance (bar horizontal)
+new Chart(document.getElementById('chartPerformance'), {
+  type: 'bar',
+  data: {
+    labels: ['Velocidade relativa', 'Redução de testes flaky\n(vs Selenium)', 'Redução de testes flaky\n(vs Cypress)'],
+    datasets: [{
+      data: [142, 160, 167],
+      backgroundColor: [pw, pw, pw],
+      borderRadius: 6
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { callback: v => v + '%' }, grid: { color: '#1B2433' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// Radar - recursos
+new Chart(document.getElementById('chartRadar'), {
+  type: 'radar',
+  data: {
+    labels: ['Velocidade', 'Cross-browser', 'Mobile nativo', 'Paralelismo\ngratuito', 'Debug/\nObservabilidade', 'Multi-linguagem'],
+    datasets: [
+      { label: 'Playwright', data: [9, 9, 3, 9, 9, 8], borderColor: pw, backgroundColor: 'rgba(46,230,197,0.15)', pointBackgroundColor: pw },
+      { label: 'Selenium', data: [5, 8, 9, 5, 5, 10], borderColor: se, backgroundColor: 'rgba(242,169,59,0.12)', pointBackgroundColor: se },
+      { label: 'Cypress', data: [7, 5, 1, 4, 9, 3], borderColor: cy, backgroundColor: 'rgba(185,140,255,0.12)', pointBackgroundColor: cy }
+    ]
+  },
+  options: {
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 16 } } },
+    scales: {
+      r: {
+        beginAtZero: true, max: 10,
+        grid: { color: '#1B2433' },
+        angleLines: { color: '#1B2433' },
+        pointLabels: { color: '#E7EEF5', font: { size: 11 } },
+        ticks: { display: false, backdropColor: 'transparent' }
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
