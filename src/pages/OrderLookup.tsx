@@ -93,7 +93,6 @@ const OrderLookup = () => {
                 <Label htmlFor="order-id">Número do Pedido</Label>
                 <Input
                   id="order-id"
-                  data-testid="search-order-id"
                   type="text"
                   placeholder="Ex: VLO-ABC123"
                   value={orderId}
@@ -125,7 +124,10 @@ const OrderLookup = () => {
 
         {/* Not Found Message */}
         {notFound && (
-          <Card className="border-destructive/50 bg-destructive/5 animate-fade-in">
+          <Card
+            className="border-destructive/50 bg-destructive/5 animate-fade-in"
+            data-testid="order-not-found"
+          >
             <CardContent className="py-8 text-center">
               <XCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
@@ -150,16 +152,10 @@ const OrderLookup = () => {
                   <Package className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Pedido</p>
-                    <p
-                      className="font-mono font-medium"
-                      data-testid="order-result-id"
-                    >
-                      {searchedOrder.id}
-                    </p>
+                    <p className="font-mono font-medium">{searchedOrder.id}</p>
                   </div>
                 </div>
                 <div
-                  data-testid="order-result-status"
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
                     searchedOrder.status === 'APROVADO'
                       ? 'bg-green-100 text-green-700'
