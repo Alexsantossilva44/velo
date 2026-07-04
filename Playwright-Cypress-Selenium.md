@@ -111,6 +111,24 @@ Com base nos dados de adoção, benchmarks de performance e tendências de merca
 
 ---
 
+## 7. Implementação no Projeto Velô
+
+Este repositório usa **Playwright** para testes E2E da consulta de pedidos e smoke test da aplicação.
+
+| Arquivo | Função |
+|---|---|
+| `playwright/e2e/online.spec.ts` | Verifica se a app está online |
+| `playwright/e2e/pedidos.spec.ts` | Testa `/lookup` (aprovado, erro, campo vazio) |
+| `playwright/helpers/orders.ts` | Cria e remove pedidos de teste no Supabase |
+| `playwright/fixtures/test.ts` | Fixture opcional com `approvedOrderId` |
+| `playwright.config.ts` | baseURL, webServer, carrega `.env` |
+
+Os testes não dependem de pedidos fixos no banco: o helper gera IDs `VLO-E2E-XXXXXX` antes de rodar e limpa depois.
+
+Documentação completa: [`playwright/README.md`](playwright/README.md)
+
+---
+
 ## Fontes
 
 Pesquisa realizada com base em artigos e comparativos publicados entre março e junho de 2026, incluindo dados de adoção (State of JS, TestDino, ThinkSys), benchmarks de performance (TestDino, Vervali Systems, ARDURA Consulting) e análises técnicas de arquitetura das três ferramentas.

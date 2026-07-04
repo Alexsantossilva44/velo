@@ -73,7 +73,7 @@ yarn supabase login
 yarn supabase link --project-ref snyeknlvaimhctazmqzw
 
 # Aplicar migrações (cria tabelas e RLS)
-yarn upabase db push
+yarn supabase db push
 
 # Deploy das Edge Functions
 yarn supabase functions deploy
@@ -95,6 +95,11 @@ src/
 ├── store/           # Estado global (Zustand)
 ├── hooks/           # Hooks customizados
 └── integrations/    # Cliente Supabase
+
+playwright/
+├── e2e/             # Specs dos testes E2E
+├── helpers/         # Seed/cleanup de pedidos no Supabase
+└── fixtures/        # Fixtures opcionais do Playwright
 ```
 
 ---
@@ -129,7 +134,21 @@ src/
 - `color`, `wheel_type`, `optionals` — Configuração
 - `customer_name`, `customer_email`, `customer_cpf` — Cliente
 - `payment_method`, `total_price` — Pagamento
-- `status` — pending, approved, rejected, analysis
+- `status` — APROVADO, REPROVADO, EM_ANALISE
+
+---
+
+## Testes E2E (Playwright)
+
+```bash
+yarn playwright test              # roda todos os testes
+yarn playwright test --ui         # interface visual
+yarn playwright test pedidos.spec.ts
+```
+
+O Playwright sobe o `yarn dev` automaticamente se o servidor não estiver no ar. Detalhes em [`playwright/README.md`](playwright/README.md).
+
+Estudo comparativo de ferramentas: [`Playwright-Cypress-Selenium.md`](Playwright-Cypress-Selenium.md)
 
 ---
 
@@ -156,7 +175,9 @@ Landing → Configurador → Checkout → Análise de Crédito → Confirmação
 ## Scripts
 
 ```bash
-npm run dev      # Desenvolvimento
-npm run build    # Build de produção
-npm run lint     # Verificar código
+yarn dev                    # Desenvolvimento
+yarn build                  # Build de produção
+yarn lint                   # Verificar código
+yarn playwright test        # Testes E2E
+yarn playwright test --ui   # Testes E2E (interface visual)
 ```
