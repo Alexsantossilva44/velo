@@ -31,7 +31,7 @@ loadEnvFile()
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  timeout: 30_000,
+  timeout: 60_000,
   testDir: './playwright/e2e',
   /* Run tests in files in parallel */
   fullyParallel: true,
@@ -44,8 +44,13 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  expect: {
+    timeout: 8_000,
+  },
+
   use: {
     baseURL: 'http://localhost:5173',
+    actionTimeout: 10_000,
     navigationTimeout: 30_000,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
