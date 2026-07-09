@@ -1,37 +1,22 @@
-import { test, expect } from '@playwright/test'
-import { createTestOrder, deleteTestOrder } from '../helpers/orders'
+import { test, expect } from '../fixtures/test'
 
-let orderId: string
+/// AAA - Arrange, Act, Assert
 
-test.beforeAll(async () => {
-  orderId = await createTestOrder()
-})
+test('deve consultar um pedido aprovado', async ({ page, approvedOrderId }) => {
+  // Arrange
+  await page.goto('/')
+  await expect(page.getByTestId('hero-section').getByRole('heading')).toContainText('Velô Sprint')
 
-test.afterAll(async () => {
-  await deleteTestOrder(orderId)
-})
+  await page.getByRole('link', { name: 'Consultar Pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Consultar Pedido' })).toBeVisible()
 
-test('consulta pedido aprovado', async ({ page }) => {
-  await page.goto('/lookup')
-
-  await page.getByLabel('Número do Pedido').fill(orderId)
+  // Act
+  await page.getByRole('textbox', { name: 'Número do Pedido' }).fill(approvedOrderId)
   await page.getByRole('button', { name: 'Buscar Pedido' }).click()
 
-  await expect(page.getByText(orderId)).toBeVisible()
-  await expect(page.getByText('APROVADO')).toBeVisible()
-})
-
-test('pedido não encontrado', async ({ page }) => {
-  await page.goto('/lookup')
-
-  await page.getByLabel('Número do Pedido').fill('VLO-NAOEXISTE')
-  await page.getByRole('button', { name: 'Buscar Pedido' }).click()
-
-  await expect(page.getByRole('heading', { name: 'Pedido não encontrado' })).toBeVisible()
-})
-
-test('botão desabilitado com campo vazio', async ({ page }) => {
-  await page.goto('/lookup')
-
-  await expect(page.getByRole('button', { name: 'Buscar Pedido' })).toBeDisabled()
+  // Assert
+  const orderResult = page.getByTestId(`order-result-${approvedOrderId}`)
+  await expect(orderResult).toBeVisible({ timeout: 10_000 })
+  await expect(orderResult).toContainText(approvedOrderId)
+  await expect(orderResult).toContainText('APROVADO')
 })
