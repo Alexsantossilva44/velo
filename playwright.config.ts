@@ -55,15 +55,14 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  // teste: reporter 'list' puro não escreve nada em disco, pra isolar se o travamento é na geração do html report
-  reporter: 'list',
+  reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 
   use: {
     baseURL: 'http://localhost:5173',
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    /* Collect trace on every run. See https://playwright.dev/docs/trace-viewer */
+    trace: 'on',
 
     // Tempo máximo para cada ações interativas (como click(), fill() e etc.)
     // Quando o valor é 0, herda o limite de timeout geral do teste
@@ -71,7 +70,7 @@ export default defineConfig({
 
     // Tempo máximo para cada navegação (como goto(), waitForURL() etc.)
     // Quando o valor é 0, herda o limite de timeout geral do teste
-    navigationTimeout: 10000,
+    navigationTimeout: 10_000,
   },
 
   /* Configure projects for major browsers */
@@ -80,36 +79,6 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ],
 
   /* Run your local dev server before starting the tests */

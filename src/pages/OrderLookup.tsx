@@ -1,39 +1,27 @@
 import { useState } from 'react'
-import { Search, Package, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Search, Package, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatPrice, Order, ExteriorColor, WheelType } from '@/store/configuratorStore'
+import { formatPrice, Order } from '@/store/configuratorStore'
+import { CAR_IMAGES, COLOR_LABELS } from '@/lib/carAssets'
 import { getOrderByNumber } from '@/hooks/useOrders'
 import Header from '@/components/landing/Header'
 
-import glacierBlueAero from '@/assets/glacier-blue-aero-wheels.png'
-import glacierBlueSport from '@/assets/glacier-blue-sport-wheels.png'
-import lunarWhiteAero from '@/assets/lunar-white-aero-wheels.png'
-import lunarWhiteSport from '@/assets/lunar-white-sport-wheels.png'
-import midnightBlackAero from '@/assets/midnight-black-aero-wheels.png'
-import midnightBlackSport from '@/assets/midnight-black-sport-wheels.png'
-
-const carImages: Record<ExteriorColor, Record<WheelType, string>> = {
-  'glacier-blue': {
-    aero: glacierBlueAero,
-    sport: glacierBlueSport,
-  },
-  'lunar-white': {
-    aero: lunarWhiteAero,
-    sport: lunarWhiteSport,
-  },
-  'midnight-black': {
-    aero: midnightBlackAero,
-    sport: midnightBlackSport,
-  },
+const statusStyles: Record<Order['status'], { badgeClass: string; Icon: typeof CheckCircle }> = {
+  APROVADO: { badgeClass: 'bg-green-100 text-green-700', Icon: CheckCircle },
+  EM_ANALISE: { badgeClass: 'bg-amber-100 text-amber-700', Icon: Clock },
+  REPROVADO: { badgeClass: 'bg-red-100 text-red-700', Icon: XCircle },
 }
 
-const colorLabels: Record<ExteriorColor, string> = {
-  'glacier-blue': 'Glacier Blue',
-  'lunar-white': 'Lunar White',
-  'midnight-black': 'Midnight Black',
+function Field({ label, value, capitalize }: { label: string; value: React.ReactNode; capitalize?: boolean }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className={`font-medium${capitalize ? ' capitalize' : ''}`}>{value}</p>
+    </div>
+  )
 }
 
 const OrderLookup = () => {
@@ -63,6 +51,8 @@ const OrderLookup = () => {
       setNotFound(true)
     }
   }
+
+  const statusInfo = searchedOrder ? statusStyles[searchedOrder.status] : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,16 +129,11 @@ const OrderLookup = () => {
                   </div>
                 </div>
                 <div
+                  role="status"
                   data-testid="order-status"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-                    searchedOrder.status === 'APROVADO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${statusInfo?.badgeClass}`}
                 >
-                  {searchedOrder.status === 'APROVADO' ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <XCircle className="w-4 h-4" />
-                  )}
+                  {statusInfo && <statusInfo.Icon className="w-4 h-4" />}
                   {searchedOrder.status}
                 </div>
               </div>
@@ -157,7 +142,7 @@ const OrderLookup = () => {
               {/* Car Image */}
               <div className="bg-secondary/30 rounded-lg p-4">
                 <img
-                  src={carImages[searchedOrder.configuration.exteriorColor][searchedOrder.configuration.wheelType]}
+                  src={CAR_IMAGES[searchedOrder.configuration.exteriorColor][searchedOrder.configuration.wheelType]}
                   alt="Velô Sprint"
                   className="w-full max-w-xs mx-auto"
                 />
@@ -165,48 +150,24 @@ const OrderLookup = () => {
 
               {/* Configuration Details */}
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Modelo</p>
-                  <p className="font-medium">Velô Sprint</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Cor</p>
-                  <p className="font-medium">{colorLabels[searchedOrder.configuration.exteriorColor]}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Interior</p>
-                  <p className="font-medium capitalize">
-                    {searchedOrder.configuration.interiorColor.replace('-', ' ')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Rodas</p>
-                  <p className="font-medium capitalize">{searchedOrder.configuration.wheelType} Wheels</p>
-                </div>
+                <Field label="Modelo" value="Velô Sprint" />
+                <Field label="Cor" value={COLOR_LABELS[searchedOrder.configuration.exteriorColor]} />
+                <Field
+                  label="Interior"
+                  value={searchedOrder.configuration.interiorColor.replace('-', ' ')}
+                  capitalize
+                />
+                <Field label="Rodas" value={`${searchedOrder.configuration.wheelType} Wheels`} capitalize />
               </div>
 
               {/* Customer Info */}
               <div className="border-t border-border pt-4">
                 <h4 className="text-sm font-medium text-foreground mb-3">Dados do Cliente</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Nome</p>
-                    <p className="font-medium">
-                      {searchedOrder.customer.name} {searchedOrder.customer.surname}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Email</p>
-                    <p className="font-medium">{searchedOrder.customer.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Loja de Retirada</p>
-                    <p className="font-medium">{searchedOrder.customer.store}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Data do Pedido</p>
-                    <p className="font-medium">{new Date(searchedOrder.createdAt).toLocaleDateString('pt-BR')}</p>
-                  </div>
+                  <Field label="Nome" value={`${searchedOrder.customer.name} ${searchedOrder.customer.surname}`} />
+                  <Field label="Email" value={searchedOrder.customer.email} />
+                  <Field label="Loja de Retirada" value={searchedOrder.customer.store} />
+                  <Field label="Data do Pedido" value={new Date(searchedOrder.createdAt).toLocaleDateString('pt-BR')} />
                 </div>
               </div>
 

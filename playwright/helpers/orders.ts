@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { generateOrderCode } from '../support/helpers'
 
 export const E2E_TEST_EMAIL = 'e2e-test@velo.local'
 
@@ -9,22 +10,15 @@ function getSupabase(): SupabaseClient {
   const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
   if (!url || !key) {
-    throw new Error(
-      'Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY são obrigatórias para os testes E2E.',
-    )
+    throw new Error('Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY são obrigatórias para os testes E2E.')
   }
 
   return createClient(url, key)
 }
 
-function generateE2EOrderNumber(): string {
-  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase()
-  return `VLO-E2E-${suffix}`
-}
-
 export async function createTestOrder(status: OrderStatus = 'APROVADO'): Promise<string> {
   const supabase = getSupabase()
-  const orderNumber = generateE2EOrderNumber()
+  const orderNumber = generateOrderCode()
 
   const { error } = await supabase.from('orders').insert({
     order_number: orderNumber,
