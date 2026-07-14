@@ -1,14 +1,9 @@
-import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/test'
 import { generateOrderCode } from '../support/helpers'
 import { E2E_TEST_EMAIL, createTestOrder, deleteTestOrder } from '../helpers/orders'
+import { OrderLookupPage } from '../pages/OrderLookupPage'
 
 /// AAA - Arrange, Act, Assert
-
-async function searchOrder(page: Page, orderNumber: string) {
-  await page.getByRole('textbox', { name: 'Número do Pedido' }).fill(orderNumber)
-  await page.getByRole('button', { name: 'Buscar Pedido' }).click()
-}
 
 test.describe('Consulta de Pedidos', () => {
   test.beforeEach(async ({ page }) => {
@@ -47,47 +42,12 @@ test.describe('Consulta de Pedidos', () => {
 
   for (const { status, label, badgeBg, badgeText, icon } of statusCases) {
     test(`deve consultar um pedido ${label}`, async ({ page }) => {
+      const lookup = new OrderLookupPage(page)
       const orderNumber = await createTestOrder(status)
 
       try {
-        // Act
-        await searchOrder(page, orderNumber)
-
-        // Assert
-        await expect(page.getByTestId(`order-result-${orderNumber}`)).toMatchAriaSnapshot(`
-        - img
-        - paragraph: Pedido
-        - paragraph: ${orderNumber}
-        - status:
-          - img
-          - text: ${status}
-        - img "Velô Sprint"
-        - paragraph: Modelo
-        - paragraph: Velô Sprint
-        - paragraph: Cor
-        - paragraph: Glacier Blue
-        - paragraph: Interior
-        - paragraph: cream
-        - paragraph: Rodas
-        - paragraph: aero Wheels
-        - heading "Dados do Cliente" [level=4]
-        - paragraph: Nome
-        - paragraph: Teste E2E
-        - paragraph: Email
-        - paragraph: ${E2E_TEST_EMAIL}
-        - paragraph: Loja de Retirada
-        - paragraph
-        - paragraph: Data do Pedido
-        - paragraph: /\\d+\\/\\d+\\/\\d+/
-        - heading "Pagamento" [level=4]
-        - paragraph: À Vista
-        - paragraph: /R\\$ \\d+\\.\\d+,\\d+/
-        `)
-
-        const statusBadge = page.getByRole('status').filter({ hasText: status })
-        await expect(statusBadge).toHaveClass(badgeBg)
-        await expect(statusBadge).toHaveClass(badgeText)
-        await expect(statusBadge.locator('svg')).toHaveClass(icon)
+        await lookup.search(orderNumber)
+        await lookup.assertOrderResult({ orderNumber, status, email: E2E_TEST_EMAIL, badgeBg, badgeText, icon })
       } finally {
         await deleteTestOrder(orderNumber)
       }
@@ -95,13 +55,11 @@ test.describe('Consulta de Pedidos', () => {
   }
 
   test('deve exibir mensagem de pedido não encontrado', async ({ page }) => {
-    // Test Data
-    const order = generateOrderCode() // Exemplo de pedido não encontrado para teste
+    const lookup = new OrderLookupPage(page)
+    const order = generateOrderCode()
 
-    // Act
-    await searchOrder(page, order)
+    await lookup.search(order)
 
-    // Assert
     const title = page.getByRole('heading', { name: 'Pedido não encontrado' })
     await expect(title).toBeVisible()
 
@@ -113,6 +71,8 @@ test.describe('Consulta de Pedidos', () => {
 // Fluxo real: cria o pedido pela loja e consulta usando o número gerado
 // nessa mesma execução — nunca um valor fixo copiado de outra sessão.
 test('deve consultar o pedido com o número gerado na criação', async ({ page }) => {
+  const lookup = new OrderLookupPage(page)
+
   // Arrange - completa a compra como um usuário faria
   await page.goto('/configure')
   await page.getByTestId('checkout-button').click()
@@ -136,7 +96,7 @@ test('deve consultar o pedido com o número gerado na criação', async ({ page 
   try {
     // Act - consulta usando o mesmo número capturado acima
     await page.getByTestId('goto-consultar').click()
-    await searchOrder(page, order)
+    await lookup.search(order)
 
     // Assert
     await expect(page.getByTestId(`order-result-${order}`)).toBeVisible({ timeout: 10_000 })
