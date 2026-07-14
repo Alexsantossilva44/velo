@@ -9,31 +9,29 @@ arquivo sozinho depois e entender o "porquê" de cada trecho, não só o "o quê
 ## 1. Imports (linhas 1-4)
 
 ```ts
-import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/test'
 import { generateOrderCode } from '../support/helpers'
 import { E2E_TEST_EMAIL, createTestOrder, deleteTestOrder } from '../helpers/orders'
+import { OrderLookupPage } from '../pages/OrderLookupPage'
 ```
 
-- **Linha 1** — `import type { Page }`: importa só o **tipo** `Page` do Playwright (o
-  `import type` some completamente no JavaScript final — existe só pro
-  TypeScript checar tipos em tempo de compilação). Usamos esse tipo para
-  anotar o parâmetro da função `searchOrder` (linha 8).
-- **Linha 2** — `test` e `expect` **não** vêm direto de `@playwright/test`, vêm de
+- **Linha 1** — `test` e `expect` **não** vêm direto de `@playwright/test`, vêm de
   `../fixtures/test`. Isso é importante: esse arquivo local (`playwright/fixtures/test.ts`)
   pega o `test` original do Playwright e "estende" ele com fixtures extras
   (dados/objetos que o Playwright injeta automaticamente nos testes, tipo o
   `page`). Quem usa `test` desse import ganha acesso a essas fixtures extras.
-- **Linha 3** — `generateOrderCode`: função que gera um código de pedido no
+- **Linha 2** — `generateOrderCode`: função que gera um código de pedido no
   formato `VLO-XXXXXX` (3 letras + 6 caracteres alfanuméricos), só que **sem**
   inserir nada no banco. Serve pra simular um pedido que nunca existiu.
-- **Linha 4** — três coisas vindas de `playwright/helpers/orders.ts`:
+- **Linha 3** — três coisas vindas de `playwright/helpers/orders.ts`:
   - `E2E_TEST_EMAIL`: e-mail fixo usado em todo pedido de teste, pra
     conseguirmos identificar (e depois apagar) o que foi criado por teste.
   - `createTestOrder(status)`: insere um pedido de verdade no Supabase com o
     status que você passar (`APROVADO`, `REPROVADO` ou `EM_ANALISE`) e devolve
     o `order_number` gerado.
   - `deleteTestOrder(orderNumber)`: remove esse pedido do banco depois do teste.
+- **Linha 4** — `OrderLookupPage`: a classe de **Page Object** que encapsula
+  todas as interações com a página de consulta de pedidos. Ver seção 3 abaixo.
 
 ---
 
@@ -49,28 +47,56 @@ vai ver esses três comentários espalhados nos testes abaixo.
 
 ---
 
-## 3. Helper `searchOrder` (linhas 8-11)
+## 3. Page Object `OrderLookupPage` (`playwright/pages/OrderLookupPage.ts`)
+
+Em vez de uma função solta `searchOrder` no topo do spec, a refatoração
+extraiu um **Page Object** — uma classe que agrupa todas as interações com
+uma página específica. O padrão se chama **Page Object Model (POM)** e é
+a abordagem recomendada pelo Playwright para organizar testes maiores.
 
 ```ts
-async function searchOrder(page: Page, orderNumber: string) {
-  await page.getByRole('textbox', { name: 'Número do Pedido' }).fill(orderNumber)
-  await page.getByRole('button', { name: 'Buscar Pedido' }).click()
+export class OrderLookupPage {
+  constructor(private page: Page) {}
+
+  async search(orderNumber: string) { ... }
+  async assertOrderResult({ orderNumber, status, email, badgeBg, badgeText, icon }) { ... }
 }
 ```
 
-Uma função auxiliar simples, não é um teste — é código reaproveitado por
-**três** testes diferentes deste arquivo (evita repetir essas duas linhas em
-todo lugar).
+**Por que Page Object?**
 
-- `page.getByRole('textbox', { name: '...' })`: localiza um elemento pelo seu
-  **papel de acessibilidade** (`role`) e pelo texto acessível associado (label,
-  `aria-label`, etc.) — é a forma recomendada pelo Playwright de localizar
-  elementos, porque testa a página do jeito que um leitor de tela (ou um
-  usuário) "enxerga" ela, não pelo detalhe de implementação (classe CSS, id).
+- Os testes ficam legíveis como linguagem de negócio (`lookup.search(...)`,
+  `lookup.assertOrderResult(...)`) em vez de misturar detalhes do Playwright
+  diretamente no spec.
+- Se o HTML da página mudar (ex: o label do campo virar "Código do Pedido"),
+  você corrige **só dentro do Page Object** — todos os testes que o usam ficam
+  corrigidos automaticamente.
+- O spec se torna mais curto e fácil de ler.
+
+**`search(orderNumber)`** — encapsula os dois passos de busca:
+
+- `page.getByRole('textbox', { name: 'Número do Pedido' })`: localiza o campo
+  pelo seu **papel de acessibilidade** (`role`) e pelo label associado — forma
+  recomendada pelo Playwright, porque testa como um usuário (ou leitor de tela)
+  enxerga a página, não por classe CSS ou id.
 - `.fill(orderNumber)`: digita o texto no campo.
-- `page.getByRole('button', { name: 'Buscar Pedido' })`: localiza o botão de
-  busca pelo texto visível.
-- `.click()`: clica.
+- `page.getByRole('button', { name: 'Buscar Pedido' }).click()`: clica no botão.
+
+**`assertOrderResult({...})`** — encapsula as duas verificações do card de resultado:
+
+1. `toMatchAriaSnapshot(...)`: compara a árvore de acessibilidade inteira do
+   card com um molde YAML. Os valores dinâmicos (`orderNumber`, `status`,
+   `email`) são interpolados na template string, nunca fixos.
+2. As três asserções do badge de status (`toHaveClass` para cor de fundo, cor
+   do texto e classe do ícone SVG).
+
+No spec, o uso fica assim:
+
+```ts
+const lookup = new OrderLookupPage(page)
+await lookup.search(orderNumber)
+await lookup.assertOrderResult({ orderNumber, status, email: E2E_TEST_EMAIL, badgeBg, badgeText, icon })
+```
 
 ---
 
@@ -142,24 +168,17 @@ espera um dos três valores específicos, não uma string qualquer.
 
 ---
 
-## 6. O loop que gera os 3 testes de status (linhas 48-95)
+## 6. O loop que gera os 3 testes de status (linhas 43-55)
 
 ```ts
 for (const { status, label, badgeBg, badgeText, icon } of statusCases) {
   test(`deve consultar um pedido ${label}`, async ({ page }) => {
+    const lookup = new OrderLookupPage(page)
     const orderNumber = await createTestOrder(status)
 
     try {
-      // Act
-      await searchOrder(page, orderNumber)
-
-      // Assert
-      await expect(page.getByTestId(`order-result-${orderNumber}`)).toMatchAriaSnapshot(`...`)
-
-      const statusBadge = page.getByRole('status').filter({ hasText: status })
-      await expect(statusBadge).toHaveClass(badgeBg)
-      await expect(statusBadge).toHaveClass(badgeText)
-      await expect(statusBadge.locator('svg')).toHaveClass(icon)
+      await lookup.search(orderNumber)
+      await lookup.assertOrderResult({ orderNumber, status, email: E2E_TEST_EMAIL, badgeBg, badgeText, icon })
     } finally {
       await deleteTestOrder(orderNumber)
     }
@@ -173,6 +192,9 @@ for (const { status, label, badgeBg, badgeText, icon } of statusCases) {
   Playwright. Resultado: 3 testes distintos no relatório
   (`deve consultar um pedido aprovado`, `...reprovado`, `...em análise`),
   gerados por um único bloco de código.
+- **`const lookup = new OrderLookupPage(page)`**: instancia o Page Object
+  passando a `page` do Playwright. A partir daí, todas as interações com a
+  página de consulta passam por `lookup`.
 - **`const orderNumber = await createTestOrder(status)`** (Arrange): cria um
   pedido de verdade no Supabase com aquele status, e guarda o número gerado
   (ex: `VLO-4F7X2A`). Isso é melhor que usar um número fixo/hardcoded, porque:
@@ -183,43 +205,29 @@ for (const { status, label, badgeBg, badgeText, icon } of statusCases) {
   o pedido criado seja **sempre** apagado do banco no final — seja o teste
   passando ou falhando (o bloco `finally` roda nos dois casos). Sem isso, cada
   execução da suíte deixaria lixo acumulando no Supabase.
-- **`await searchOrder(page, orderNumber)`** (Act): usa o helper da seção 3
-  pra preencher o campo e clicar em buscar.
-- **`toMatchAriaSnapshot(...)`** (Assert, parte 1): compara a **árvore de
-  acessibilidade** do elemento (`order-result-{orderNumber}`) com um "molde"
-  escrito em YAML. Cada linha do molde (`- paragraph: Pedido`, `- img`, etc.)
-  descreve um nó esperado (papel + texto). É uma forma de verificar a
-  estrutura inteira do card de uma vez, sem escrever uma asserção separada
-  para cada campo.
-  - Repare no uso de template string (`` `...` ``) com `${orderNumber}`,
-    `${status}` e `${E2E_TEST_EMAIL}` interpolados — o molde é montado
-    dinamicamente com os valores reais do pedido criado, nunca com texto
-    fixo.
-- **`page.getByRole('status').filter({ hasText: status })`** (Assert, parte 2):
-  localiza o elemento com `role="status"` (adicionado na `<div>` do badge em
-  `OrderLookup.tsx`) que contenha o texto do status. `.filter({ hasText })`
-  refina uma busca por role adicionando uma condição de texto.
-- **`toHaveClass(badgeBg)` / `toHaveClass(badgeText)`**: confere se a classe
-  CSS do elemento bate com a regex esperada (cor de fundo e cor do texto do
-  badge).
-- **`statusBadge.locator('svg')`**: dentro do badge, localiza o elemento
-  `<svg>` (o ícone) e confere sua classe (`toHaveClass(icon)`) — garante que o
-  ícone certo (check verde, X vermelho, relógio âmbar) está sendo mostrado
-  pra cada status.
+- **`lookup.search(orderNumber)`** (Act): delega para o Page Object preencher
+  o campo e clicar em buscar (ver seção 3).
+- **`lookup.assertOrderResult({...})`** (Assert): delega para o Page Object as
+  duas verificações — o aria snapshot completo do card e as classes do badge de
+  status. O spec passa os valores que variam por cenário (`orderNumber`,
+  `status`, `email`, `badgeBg`, `badgeText`, `icon`); a lógica de como verificar
+  fica encapsulada no Page Object.
+
+O bloco que antes ocupava ~40 linhas no spec agora ocupa 3 linhas — sem perder
+nenhuma cobertura, porque toda a lógica de asserção foi movida para
+`OrderLookupPage.assertOrderResult`.
 
 ---
 
-## 7. Teste "pedido não encontrado" (linhas 97-110)
+## 7. Teste "pedido não encontrado" (linhas 57-68)
 
 ```ts
 test('deve exibir mensagem de pedido não encontrado', async ({ page }) => {
-  // Test Data
-  const order = generateOrderCode() // Exemplo de pedido não encontrado para teste
+  const lookup = new OrderLookupPage(page)
+  const order = generateOrderCode()
 
-  // Act
-  await searchOrder(page, order)
+  await lookup.search(order)
 
-  // Assert
   const title = page.getByRole('heading', { name: 'Pedido não encontrado' })
   await expect(title).toBeVisible()
 
@@ -231,47 +239,38 @@ test('deve exibir mensagem de pedido não encontrado', async ({ page }) => {
 - **`generateOrderCode()`** (Test Data): aqui, ao contrário dos testes
   anteriores, o objetivo é *propositalmente* usar um número que **não existe**
   no banco — por isso não usamos `createTestOrder` (que cria de verdade).
-- **`searchOrder(page, order)`** (Act): mesma busca de sempre, só que com um
-  código que o Supabase não vai encontrar.
+- **`lookup.search(order)`** (Act): mesmo Page Object, mesma busca — só que com
+  um código que o Supabase não vai encontrar.
 - **Assert**: confere que aparece o heading "Pedido não encontrado" e o
   parágrafo de orientação ("Verifique o número..."). Note que aqui não
   precisamos de `try/finally`/`deleteTestOrder`, porque nenhum pedido foi
-  criado no banco — não há nada pra limpar.
+  criado no banco — não há nada pra limpar. Também não usamos
+  `assertOrderResult`, pois o cenário é de erro — não existe card de resultado
+  pra verificar.
 
 ---
 
-## 8. Teste de fluxo real: criar e consultar (linhas 113-148)
+## 8. Teste de fluxo real: criar e consultar (linhas 71-108)
 
 ```ts
-// Fluxo real: cria o pedido pela loja e consulta usando o número gerado
-// nessa mesma execução — nunca um valor fixo copiado de outra sessão.
 test('deve consultar o pedido com o número gerado na criação', async ({ page }) => {
+  const lookup = new OrderLookupPage(page)
+
   // Arrange - completa a compra como um usuário faria
   await page.goto('/configure')
   await page.getByTestId('checkout-button').click()
-
-  await page.getByTestId('checkout-name').fill('Maria')
-  await page.getByTestId('checkout-surname').fill('Teste')
-  await page.getByTestId('checkout-email').fill(E2E_TEST_EMAIL)
-  await page.getByTestId('checkout-phone').fill('(11) 99999-9999')
-  await page.getByTestId('checkout-cpf').fill('123.456.789-09')
-  await page.getByTestId('checkout-store').click()
-  await page.getByRole('option', { name: /Velô Paulista/ }).click()
-  await page.getByTestId('checkout-terms').click()
+  // ... preenche formulário ...
   await page.getByTestId('checkout-submit').click()
 
   await expect(page.getByTestId('success-status')).toBeVisible()
 
-  // Captura o número REAL gerado pela criação do pedido
   const order = (await page.getByTestId('order-id').innerText()).trim()
   expect(order).toMatch(/^VLO-[A-Z0-9]{6}$/)
 
   try {
-    // Act - consulta usando o mesmo número capturado acima
     await page.getByTestId('goto-consultar').click()
-    await searchOrder(page, order)
+    await lookup.search(order)
 
-    // Assert
     await expect(page.getByTestId(`order-result-${order}`)).toBeVisible({ timeout: 10_000 })
     await expect(page.getByTestId('order-number')).toContainText(order)
     await expect(page.getByTestId('order-status')).toContainText('APROVADO')
@@ -287,36 +286,35 @@ Este teste é diferente dos outros: ele está **fora** do `test.describe`
 usuário de verdade faria: montar o carro, finalizar a compra, e só então
 consultar o pedido — sem nenhum atalho por API/banco.
 
-- **Linhas 117-128 (Arrange)**: navega até `/configure`, clica em
-  `checkout-button` (avança pro formulário de pedido), preenche todos os
-  campos obrigatórios (nome, sobrenome, e-mail, telefone, CPF), escolhe a
-  loja no `<select>` (abre com `.click()` e escolhe a opção pelo texto via
-  `getByRole('option', ...)`), marca a caixinha de termos, e envia o
-  formulário (`checkout-submit`).
-- **Linha 130**: confirma que a tela de sucesso apareceu
-  (`data-testid="success-status"`).
-- **Linha 133**: aqui está o ponto mais importante do teste — em vez de
-  inventar um número de pedido, ele **lê o número real** que a aplicação
-  gerou e mostrou na tela (`order-id`), com `.innerText()`, e guarda numa
-  variável. É esse valor que será usado na consulta logo depois — nunca um
-  valor copiado de outra sessão/manual.
-- **Linha 134**: `expect(order).toMatch(/^VLO-[A-Z0-9]{6}$/)` é uma
-  verificação de sanidade: confirma que o texto capturado realmente parece um
-  número de pedido válido (`VLO-` + 6 caracteres maiúsculos/dígitos) antes de
-  seguir. Se a página mudasse e o texto capturado viesse errado (vazio, ou
-  outra coisa), o teste falharia aqui, com uma mensagem clara — em vez de
-  falhar de forma confusa mais adiante, na hora de buscar.
+- **`const lookup = new OrderLookupPage(page)`**: o Page Object é instanciado
+  no início do teste, antes de navegar. Pode ser reusado em qualquer momento
+  do teste quando a página de consulta for relevante.
+- **Arrange** (linhas do formulário): navega até `/configure`, clica em
+  `checkout-button`, preenche todos os campos obrigatórios (nome, sobrenome,
+  e-mail, telefone, CPF), escolhe a loja no `<select>` (abre com `.click()` e
+  escolhe a opção pelo texto via `getByRole('option', ...)`), marca a
+  caixinha de termos, e envia o formulário (`checkout-submit`).
+- **`success-status` visível**: confirma que a tela de sucesso apareceu.
+- **Leitura do número real**: em vez de inventar um número de pedido, o teste
+  **lê o número real** que a aplicação gerou e mostrou na tela (`order-id`),
+  com `.innerText()`, e guarda numa variável. É esse valor que será usado na
+  consulta — nunca um valor copiado de outra sessão/manual.
+- **`expect(order).toMatch(/^VLO-[A-Z0-9]{6}$/)`**: verificação de sanidade —
+  confirma que o texto capturado realmente é um número de pedido válido antes
+  de seguir. Se a página mudasse e o texto viesse errado (vazio, ou outra
+  coisa), o teste falharia aqui, com mensagem clara, em vez de falhar de forma
+  confusa na busca.
 - **`try { ... } finally { deleteTestOrder(order) }`**: mesma lógica de
   limpeza dos testes de status — mesmo esse pedido tendo sido criado pela UI
   (não por `createTestOrder`), ele ainda é uma linha real no Supabase e
   precisa ser removido no final.
-- **Act**: clica em "Consultar Pedido" (`goto-consultar`, na tela de
-  sucesso) e busca usando o `searchOrder` com o número **capturado** (não um
-  literal).
-- **Assert**: confere que o card do resultado aparece, que o número exibido
-  bate com o que foi capturado, e que o status mostrado é `APROVADO` (o
-  fluxo usa pagamento "à vista", que sempre aprova direto, sem passar pela
-  análise de crédito).
+- **Act**: clica em "Consultar Pedido" (`goto-consultar`, na tela de sucesso)
+  e usa `lookup.search(order)` com o número **capturado** (não um literal).
+- **Assert**: aqui usamos `getByTestId` diretamente (não `assertOrderResult`),
+  porque neste teste só precisamos confirmar que o card existe e que o status
+  é `APROVADO` — não a estrutura completa do aria snapshot. O fluxo usa
+  pagamento "à vista", que sempre aprova direto, sem passar pela análise de
+  crédito.
 
 ---
 
@@ -324,12 +322,13 @@ consultar o pedido — sem nenhum atalho por API/banco.
 
 | Conceito | O que é | Onde aparece |
 |---|---|---|
-| `test.describe` | Agrupa testes relacionados | linha 13 |
-| `test.beforeEach` | Roda antes de cada teste do grupo | linha 14 |
+| `test.describe` | Agrupa testes relacionados | linha 8 |
+| `test.beforeEach` | Roda antes de cada teste do grupo | linha 9 |
 | Fixture `page` | Aba de navegador isolada, injetada automaticamente | em todo `async ({ page }) => {}` |
-| `getByRole` | Localiza elementos pelo papel de acessibilidade (recomendado pelo Playwright) | `searchOrder`, e vários outros lugares |
+| **Page Object Model** | Classe que encapsula interações de uma página — separa "como interagir" de "o que testar" | `OrderLookupPage` (seção 3) |
+| `getByRole` | Localiza elementos pelo papel de acessibilidade (recomendado pelo Playwright) | `OrderLookupPage.search`, e vários outros lugares |
 | `getByTestId` | Localiza elementos por `data-testid` (usado quando não há um papel/texto natural) | `order-result-*`, `checkout-*` |
-| `toMatchAriaSnapshot` | Compara a árvore de acessibilidade inteira de um elemento com um molde | linha 57 |
-| `toHaveClass` | Confere se as classes CSS de um elemento batem com um valor/regex | badge de status |
+| `toMatchAriaSnapshot` | Compara a árvore de acessibilidade inteira de um elemento com um molde | `OrderLookupPage.assertOrderResult` |
+| `toHaveClass` | Confere se as classes CSS de um elemento batem com um valor/regex | badge de status (dentro do Page Object) |
 | `try/finally` para limpeza | Garante que dados de teste criados sejam removidos, mesmo se o teste falhar | todos os testes que chamam `createTestOrder` |
-| Fixtures customizadas (`../fixtures/test`) | Extensão do `test` do Playwright com dados extras injetáveis | linha 2 (import) |
+| Fixtures customizadas (`../fixtures/test`) | Extensão do `test` do Playwright com dados extras injetáveis | linha 1 (import) |
