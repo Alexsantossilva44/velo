@@ -2,16 +2,13 @@ import { test, expect } from '../fixtures/test'
 import { generateOrderCode } from '../support/helpers'
 import { E2E_TEST_EMAIL, createTestOrder, deleteTestOrder } from '../helpers/orders'
 import { OrderLookupPage } from '../pages/OrderLookupPage'
+import { LandingPage } from '../pages/LandingPage'
 
 /// AAA - Arrange, Act, Assert
 
 test.describe('Consulta de Pedidos', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByTestId('hero-section').getByRole('heading')).toContainText('Velô Sprint')
-
-    await page.getByRole('link', { name: 'Consultar Pedido' }).click()
-    await expect(page.getByRole('heading', { name: 'Consultar Pedido' })).toBeVisible()
+    await new LandingPage(page).goToOrderLookup()
   })
 
   // Casos de status: o card do pedido é idêntico em todos, só mudam o rótulo
@@ -65,6 +62,15 @@ test.describe('Consulta de Pedidos', () => {
 
     const message = page.locator('p', { hasText: 'Verifique o número do pedido e tente novamente' })
     await expect(message).toBeVisible()
+  })
+
+  test('deve exibir mensagem quando o pedido em qualquer formato não é encontrado', async ({ page }) => {
+    const lookup = new OrderLookupPage(page)
+
+    await lookup.search('ABC123')
+
+    await expect(page.getByRole('heading', { name: 'Pedido não encontrado' })).toBeVisible()
+    await expect(page.locator('p', { hasText: 'Verifique o número do pedido e tente novamente' })).toBeVisible()
   })
 })
 
