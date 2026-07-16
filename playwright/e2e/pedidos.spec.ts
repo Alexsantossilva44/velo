@@ -1,14 +1,12 @@
-import { test, expect } from '../fixtures/test'
+import { test, expect } from '../support/fixtures'
 import { generateOrderCode } from '../support/helpers'
 import { E2E_TEST_EMAIL, createTestOrder, deleteTestOrder } from '../helpers/orders'
-import { OrderLookupPage } from '../pages/OrderLookupPage'
-import { LandingPage } from '../pages/LandingPage'
 
 /// AAA - Arrange, Act, Assert
 
 test.describe('Consulta de Pedidos', () => {
-  test.beforeEach(async ({ page }) => {
-    await new LandingPage(page).goToOrderLookup()
+  test.beforeEach(async ({ app }) => {
+    await app.orderLookup.open()
   })
 
   // Casos de status: o card do pedido é idêntico em todos, só mudam o rótulo
@@ -38,24 +36,29 @@ test.describe('Consulta de Pedidos', () => {
   ] as const
 
   for (const { status, label, badgeBg, badgeText, icon } of statusCases) {
-    test(`deve consultar um pedido ${label}`, async ({ page }) => {
-      const lookup = new OrderLookupPage(page)
+    test(`deve consultar um pedido ${label}`, async ({ app }) => {
       const orderNumber = await createTestOrder(status)
 
       try {
-        await lookup.search(orderNumber)
-        await lookup.assertOrderResult({ orderNumber, status, email: E2E_TEST_EMAIL, badgeBg, badgeText, icon })
+        await app.orderLookup.search(orderNumber)
+        await app.orderLookup.assertOrderResult({
+          orderNumber,
+          status,
+          email: E2E_TEST_EMAIL,
+          badgeBg,
+          badgeText,
+          icon,
+        })
       } finally {
         await deleteTestOrder(orderNumber)
       }
     })
   }
 
-  test('deve exibir mensagem de pedido não encontrado', async ({ page }) => {
-    const lookup = new OrderLookupPage(page)
+  test('deve exibir mensagem de pedido não encontrado', async ({ app, page }) => {
     const order = generateOrderCode()
 
-    await lookup.search(order)
+    await app.orderLookup.search(order)
 
     const title = page.getByRole('heading', { name: 'Pedido não encontrado' })
     await expect(title).toBeVisible()
@@ -64,10 +67,8 @@ test.describe('Consulta de Pedidos', () => {
     await expect(message).toBeVisible()
   })
 
-  test('deve exibir mensagem quando o pedido em qualquer formato não é encontrado', async ({ page }) => {
-    const lookup = new OrderLookupPage(page)
-
-    await lookup.search('ABC123')
+  test('deve exibir mensagem quando o pedido em qualquer formato não é encontrado', async ({ app, page }) => {
+    await app.orderLookup.search('ABC123')
 
     await expect(page.getByRole('heading', { name: 'Pedido não encontrado' })).toBeVisible()
     await expect(page.locator('p', { hasText: 'Verifique o número do pedido e tente novamente' })).toBeVisible()
@@ -76,9 +77,7 @@ test.describe('Consulta de Pedidos', () => {
 
 // Fluxo real: cria o pedido pela loja e consulta usando o número gerado
 // nessa mesma execução — nunca um valor fixo copiado de outra sessão.
-test('deve consultar o pedido com o número gerado na criação', async ({ page }) => {
-  const lookup = new OrderLookupPage(page)
-
+test('deve consultar o pedido com o número gerado na criação', async ({ app, page }) => {
   // Arrange - completa a compra como um usuário faria
   await page.goto('/configure')
   await page.getByTestId('checkout-button').click()
@@ -102,7 +101,7 @@ test('deve consultar o pedido com o número gerado na criação', async ({ page 
   try {
     // Act - consulta usando o mesmo número capturado acima
     await page.getByTestId('goto-consultar').click()
-    await lookup.search(order)
+    await app.orderLookup.search(order)
 
     // Assert
     await expect(page.getByTestId(`order-result-${order}`)).toBeVisible({ timeout: 10_000 })

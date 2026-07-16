@@ -332,3 +332,20 @@ consultar o pedido — sem nenhum atalho por API/banco.
 | `toHaveClass` | Confere se as classes CSS de um elemento batem com um valor/regex | badge de status (dentro do Page Object) |
 | `try/finally` para limpeza | Garante que dados de teste criados sejam removidos, mesmo se o teste falhar | todos os testes que chamam `createTestOrder` |
 | Fixtures customizadas (`../fixtures/test`) | Extensão do `test` do Playwright com dados extras injetáveis | linha 1 (import) |
+
+
+O benefício real do Page Object.
+
+Imagine que o label do campo muda de "Número do Pedido" para "Código do Pedido".
+
+- Sem POM: você procura em todos os testes e corrige em 3, 4, 5 lugares.
+- Com POM: corrige só dentro de OrderLookupPage.search(). Todos os testes que usam lookup.search() ficam corrigidos automaticamente.
+
+---
+Quando vale a pena criar
+
+- Quando 2 ou mais testes interagem com a mesma página da mesma forma.
+- Quando o bloco de interação/assertion tem mais de ~5 linhas e se repetiria.
+- Quando a página é complexa o suficiente pra ter vários fluxos (busca, resultado, erro).
+
+Para um teste único e simples, usar o Page Object seria over-engineering — o getByRole direto é mais claro.
