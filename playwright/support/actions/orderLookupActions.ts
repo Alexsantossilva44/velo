@@ -1,7 +1,13 @@
 import { Page, expect } from '@playwright/test'
 
 export function createOrderLookupActions(page: Page) {
+  const orderInput = page.getByRole('textbox', { name: 'Número do Pedido' })
+  const searchButton = page.getByRole('button', { name: 'Buscar Pedido' })
+
   return {
+    orderInput,
+    searchButton,
+
     async open() {
       await page.goto('/')
       const title = page.getByTestId('hero-section').getByRole('heading')
@@ -10,8 +16,8 @@ export function createOrderLookupActions(page: Page) {
       await expect(page.getByRole('heading')).toContainText('Consultar Pedido')
     },
     async search(orderNumber: string) {
-      await page.getByRole('textbox', { name: 'Número do Pedido' }).fill(orderNumber)
-      await page.getByRole('button', { name: 'Buscar Pedido' }).click()
+      await orderInput.fill(orderNumber)
+      await searchButton.click()
     },
 
     async assertOrderResult({

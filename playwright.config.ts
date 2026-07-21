@@ -60,6 +60,7 @@ export default defineConfig({
 
   use: {
     baseURL: 'http://localhost:5173',
+    headless: false,
 
     /* Collect trace on every run. See https://playwright.dev/docs/trace-viewer */
     trace: 'on',

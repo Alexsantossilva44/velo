@@ -2,7 +2,7 @@ import { test, expect } from '../support/fixtures'
 import { generateOrderCode } from '../support/helpers'
 import { E2E_TEST_EMAIL, createTestOrder, deleteTestOrder } from '../helpers/orders'
 
-/// AAA - Arrange, Act, Assert
+/// Tudo que envolve pedidos (consulta, status, criação real)
 
 test.describe('Consulta de Pedidos', () => {
   test.beforeEach(async ({ app }) => {
@@ -36,7 +36,7 @@ test.describe('Consulta de Pedidos', () => {
   ] as const
 
   for (const { status, label, badgeBg, badgeText, icon } of statusCases) {
-    test(`deve consultar um pedido ${label}`, async ({ app }) => {
+    test(`Deve consultar um pedido ${label}`, async ({ app }) => {
       const orderNumber = await createTestOrder(status)
 
       try {
@@ -55,7 +55,7 @@ test.describe('Consulta de Pedidos', () => {
     })
   }
 
-  test('deve exibir mensagem de pedido não encontrado', async ({ app, page }) => {
+  test('Deve exibir mensagem de pedido não encontrado', async ({ app, page }) => {
     const order = generateOrderCode()
 
     await app.orderLookup.search(order)
@@ -67,7 +67,15 @@ test.describe('Consulta de Pedidos', () => {
     await expect(message).toBeVisible()
   })
 
-  test('deve exibir mensagem quando o pedido em qualquer formato não é encontrado', async ({ app, page }) => {
+  test('Deve manter o botão de busca desabilitado com o campo vazio ou apenas espaços', async ({ app, page }) => {
+    const button = app.orderLookup.searchButton
+    await expect(button).toBeDisabled()
+
+    await app.orderLookup.orderInput.fill('   ')
+    await expect(button).toBeDisabled()
+  })
+
+  test('Deve exibir mensagem quando o pedido em qualquer formato não é encontrado', async ({ app, page }) => {
     await app.orderLookup.search('ABC123')
 
     await expect(page.getByRole('heading', { name: 'Pedido não encontrado' })).toBeVisible()
@@ -77,30 +85,30 @@ test.describe('Consulta de Pedidos', () => {
 
 // Fluxo real: cria o pedido pela loja e consulta usando o número gerado
 // nessa mesma execução — nunca um valor fixo copiado de outra sessão.
-test('deve consultar o pedido com o número gerado na criação', async ({ app, page }) => {
+test('Deve consultar o pedido com o número gerado na criação', async ({ app, page }) => {
   // Arrange - completa a compra como um usuário faria
-  await page.goto('/configure')
-  await page.getByTestId('checkout-button').click()
+  await app.configurador.open()
+  await app.configurador.goToCheckout()
 
-  await page.getByTestId('checkout-name').fill('Maria')
-  await page.getByTestId('checkout-surname').fill('Teste')
-  await page.getByTestId('checkout-email').fill(E2E_TEST_EMAIL)
-  await page.getByTestId('checkout-phone').fill('(11) 99999-9999')
-  await page.getByTestId('checkout-cpf').fill('123.456.789-09')
-  await page.getByTestId('checkout-store').click()
-  await page.getByRole('option', { name: /Velô Paulista/ }).click()
-  await page.getByTestId('checkout-terms').click()
-  await page.getByTestId('checkout-submit').click()
+  await app.checkout.fillForm({
+    name: 'Maria',
+    surname: 'Teste',
+    email: E2E_TEST_EMAIL,
+    phone: '(11) 99999-9999',
+    cpf: '123.456.789-09',
+    store: /Velô Paulista/,
+  })
+  await app.checkout.acceptTerms()
+  await app.checkout.submit()
 
-  await expect(page.getByTestId('success-status')).toBeVisible()
+  await app.checkout.assertSuccess()
 
   // Captura o número REAL gerado pela criação do pedido
-  const order = (await page.getByTestId('order-id').innerText()).trim()
-  expect(order).toMatch(/^VLO-[A-Z0-9]{6}$/)
+  const order = await app.checkout.getOrderNumber()
 
   try {
     // Act - consulta usando o mesmo número capturado acima
-    await page.getByTestId('goto-consultar').click()
+    await app.checkout.goToOrderLookup()
     await app.orderLookup.search(order)
 
     // Assert
