@@ -8,13 +8,19 @@ O objetivo é validar se o preço do veículo é atualizado corretamente ao sele
 
 ---
 
+## Descrição da Atividade
+
+Automatizei o CT03 seguindo o fluxo do prompt-qa-playwright-automator.md: localizei o cenário no testcases.md, explorei a aplicação via Playwright MCP antes de codificar, e implementei com TypeScript usando Feature Actions. Estendi configuradorActions.ts com assertOnCheckoutPage(). Teste valida opcionais com preço dinâmico e redirect ao checkout. Suite: 11/11 passando.
+
+---
+
 ## O que foi feito
 
-1. Aberto o arquivo `testcases.md` e localizado o cenário CT03.
-2. Utilizado o prompt `prompt-qa-playwright-automator.md` como referência de padrões para geração da automação.
-3. Executado o teste e validado que o cenário funciona corretamente.
-4. Refatorada a automação utilizando Feature Actions.
-5. Reutilizada e estendida a camada `configuradorActions.ts`.
+1. Localizado o cenário CT03 no arquivo `testcases.md`.
+2. Seguido o fluxo do `prompt-qa-playwright-automator.md`: exploração manual via Playwright MCP antes de qualquer código.
+3. Implementada a automação com TypeScript utilizando o padrão Feature Actions.
+4. Reutilizada e estendida a camada `configuradorActions.ts` com o método `assertOnCheckoutPage()`.
+5. Executado e validado — suite completa passando sem regressões.
 
 ---
 
